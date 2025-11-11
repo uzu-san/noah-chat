@@ -12,7 +12,7 @@ export default function LineStyleChat() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ← ここが今回の肝：送信処理はこの一つだけ。重複させない！
+  // ---- 送信処理（この関数だけで完結） ----
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
@@ -25,18 +25,39 @@ export default function LineStyleChat() {
       const res = await fetch("/api/gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // サーバは { message: "…" } を受け取る実装に合わせる
+        // サーバー側は { message: "..." } を受け取る実装
         body: JSON.stringify({ message: userMsg.text }),
       });
 
-      const data = await res.json();
+      // --- ここが今回の差し替え：HTTPエラーを内容付きで表示 ---
+      if (!res.ok) {
+        let serverMsg = "";
+        try {
+          const maybeJson = await res.json();
+          serverMsg =
+            typeof maybeJson?.message === "string"
+              ? maybeJson.message
+              : JSON.stringify(maybeJson);
+        } catch {
+          serverMsg = `${res.status} ${res.statusText}`;
+        }
+        throw new Error(serverMsg || `HTTP ${res.status}`);
+      }
 
-      // サーバは { text: "AIの返答" } を返す実装に合わせる
-      const reply = typeof data?.text === "string" ? data.text : "（応答がありません）";
+      const data = await res.json();
+      const reply =
+        typeof data?.text === "string" && data.text.trim()
+          ? data.text
+          : "（応答がありません）";
+
       setMessages((m) => [...m, { role: "model", text: reply }]);
     } catch (err) {
       console.error("Error fetching reply:", err);
-      setMessages((m) => [...m, { role: "model", text: "通信エラーが発生しました。" }]);
+      const msg =
+        err?.message && typeof err.message === "string"
+          ? `エラー: ${err.message}`
+          : "通信エラーが発生しました。";
+      setMessages((m) => [...m, { role: "model", text: msg }]);
     } finally {
       setLoading(false);
     }
@@ -47,14 +68,26 @@ export default function LineStyleChat() {
   };
 
   return (
-    <div style={{ fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, 'ヒラギノ角ゴ ProN', 'Yu Gothic UI', sans-serif", padding: 16 }}>
+    <div
+      style={{
+        fontFamily:
+          "system-ui, -apple-system, Segoe UI, Roboto, 'ヒラギノ角ゴ ProN', 'Yu Gothic UI', sans-serif",
+        padding: 16,
+      }}
+    >
       <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>NOAH</div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {messages.map((m, i) => {
           const isUser = m.role === "user";
           return (
-            <div key={i} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start" }}>
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                justifyContent: isUser ? "flex-end" : "flex-start",
+              }}
+            >
               <div
                 style={{
                   maxWidth: "70%",
