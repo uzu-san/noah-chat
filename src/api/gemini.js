@@ -1,12 +1,14 @@
+// /api/gemini.js
 export default async function handler(req, res) {
-  // POST 以外は弾く
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  // ★重要★: Vercel の Node 関数では req.body を「そのまま」読む
-  // （await req.body はNG）
-  const { message } = (req.body || {});
+  // 文字列でもオブジェクトでも安全に受け取る
+  const raw = req.body ?? {};
+  const body = typeof raw === "string" ? JSON.parse(raw || "{}") : raw;
+  const message = (body?.message ?? "").toString();
+
   if (!message) {
     return res.status(400).json({ message: "No message provided" });
   }
@@ -23,19 +25,22 @@ export default async function handler(req, res) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: message }] }]
-        })
+          contents: [{ role: "user", parts: [{ text: message }] }],
+        }),
       }
     );
 
-    const data = await resp.json();
+    const json = await resp.json();
+
+    // 応答本文を安全に抽出
     const text =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      json?.candidates?.[0]?.content?.parts?.map?.(p => p?.text || "").join("") ||
+      json?.candidates?.[0]?.content?.parts?.[0]?.text ||
       "（応答がありません）";
 
     return res.status(200).json({ text });
-  } catch (err) {
-    console.error("Gemini API Error:", err);
+  } catch (e) {
+    console.error("Gemini API Error:", e);
     return res.status(500).json({ message: "Error connecting to Gemini API" });
   }
 }
