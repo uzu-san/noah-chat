@@ -13,10 +13,35 @@ export default function LineStyleChat() {
   }, [messages]);
 
   // ←← ここが重要：/api/gemini への呼び出しを書き換えています
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+ const handleSend = async () => {
+  if (!input.trim()) return;
+  const userMsg = { role: "user", text: input };
+  setMessages((m) => [...m, userMsg]);
+  setInput("");
+  setLoading(true);
 
-    const userMsg = { role: "user", text: input };
+  try {
+    const res = await fetch("/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: input }),
+    });
+
+    const data = await res.json();
+
+    // サーバーの返答を受け取ってメッセージを追加
+    setMessages((m) => [...m, { role: "model", text: data.text }]);
+  } catch (err) {
+    console.error("Error fetching reply:", err);
+    setMessages((m) => [
+      ...m,
+      { role: "model", text: "通信エラーが発生しました。" },
+    ]);
+  } finally {
+    setLoading(false);
+  }
+};
+
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
@@ -89,3 +114,4 @@ export default function LineStyleChat() {
     </div>
   );
 }
+
