@@ -12,61 +12,77 @@ export default function LineStyleChat() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // ←← ここが重要：/api/gemini への呼び出しを書き換えています
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
+
     const userMsg = { role: "user", text: input };
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
 
-    const res = await fetch("/api/gemini", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ history: [...messages, userMsg] }),
-    });
+    try {
+      const res = await fetch("/api/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // サーバーは { message: "..." } を受け取り、{ text: "返答" } を返します
+        body: JSON.stringify({ message: userMsg.text }),
+      });
 
-    const data = await res.json();
-    setMessages((m) => [...m, { role: "model", text: data.reply }]);
-    setLoading(false);
+      const data = await res.json();
+      const replyText =
+        typeof data?.text === "string" && data.text.length
+          ? data.text
+          : "（応答がありません）";
+
+      setMessages((m) => [...m, { role: "model", text: replyText }]);
+    } catch (err) {
+      console.error("Error fetching reply:", err);
+      setMessages((m) => [
+        ...m,
+        { role: "model", text: "通信エラーが発生しました。少し時間をおいてお試しください。" },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === "Enter") handleSend();
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
-      <div className="bg-green-500 text-white p-4 text-lg font-bold">NOAH</div>
+    <div style={{ padding: 12, fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ fontSize: 20, fontWeight: "bold", marginBottom: 8 }}>NOAH</div>
 
-      <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+      <div style={{ marginBottom: 12, lineHeight: 1.7 }}>
         {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`px-3 py-2 rounded-2xl max-w-[75%] ${
-                m.role === "user"
-                  ? "bg-green-400 text-white rounded-br-none"
-                  : "bg-white text-gray-800 rounded-bl-none"
-              }`}
+          <div key={i} style={{ textAlign: m.role === "user" ? "right" : "left" }}>
+            <span
+              style={{
+                display: "inline-block",
+                padding: "8px 12px",
+                borderRadius: 12,
+                margin: "4px 0",
+                background: m.role === "user" ? "#e8f5e9" : "#f5f5f5",
+              }}
             >
               {m.text}
-            </div>
+            </span>
           </div>
         ))}
         <div ref={endRef} />
       </div>
 
-      <div className="p-2 bg-white flex gap-2 border-t">
+      <div>
         <input
-          className="flex-1 border rounded-full px-4 py-2 focus:outline-none"
           placeholder="メッセージを入力"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          onKeyDown={onKeyDown}
+          style={{ padding: 8, width: 260 }}
         />
-        <button
-          onClick={handleSend}
-          className="bg-green-500 text-white px-4 py-2 rounded-full"
-          disabled={loading}
-        >
+        <button onClick={handleSend} disabled={loading} style={{ marginLeft: 6, padding: "8px 12px" }}>
           送信
         </button>
       </div>
