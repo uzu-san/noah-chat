@@ -1,56 +1,41 @@
-// api/gemini.js ーーー Edge Function 版（本文を正しく受け取れる）
-
-export const config = { runtime: "edge" };
-
-export default async function handler(req) {
+export default async function handler(req, res) {
+  // POST 以外は弾く
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ message: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    });
+    return res.status(405).json({ message: "Method not allowed" });
   }
 
-  // フロントから送った { message: "..." } を読む
-  const { message } = await req.json().catch(() => ({}));
+  // ★重要★: Vercel の Node 関数では req.body を「そのまま」読む
+  // （await req.body はNG）
+  const { message } = (req.body || {});
   if (!message) {
-    return new Response(JSON.stringify({ message: "No message provided" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
+    return res.status(400).json({ message: "No message provided" });
   }
 
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
-    return new Response(JSON.stringify({ message: "Missing Google API key" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return res.status(500).json({ message: "Missing Google API key" });
   }
 
   try {
-    const upstream = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=" +
-        apiKey,
+    const resp = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=" + apiKey,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: message }] }],
-        }),
+          contents: [{ role: "user", parts: [{ text: message }] }]
+        })
       }
     );
 
-    const data = await upstream.json();
+    const data = await resp.json();
     const text =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "（応答がありません）";
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      "（応答がありません）";
 
-    return new Response(JSON.stringify({ text }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return res.status(200).json({ text });
   } catch (err) {
-    return new Response(
-      JSON.stringify({ message: "Error connecting to Gemini API" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    console.error("Gemini API Error:", err);
+    return res.status(500).json({ message: "Error connecting to Gemini API" });
   }
 }
