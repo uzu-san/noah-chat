@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 export default function LineStyleChat() {
   const [messages, setMessages] = useState([
@@ -12,36 +12,11 @@ export default function LineStyleChat() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ←← ここが重要：/api/gemini への呼び出しを書き換えています
- const handleSend = async () => {
-  if (!input.trim()) return;
-  const userMsg = { role: "user", text: input };
-  setMessages((m) => [...m, userMsg]);
-  setInput("");
-  setLoading(true);
+  // ← ここが今回の肝：送信処理はこの一つだけ。重複させない！
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
 
-  try {
-    const res = await fetch("/api/gemini", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: input }),
-    });
-
-    const data = await res.json();
-
-    // サーバーの返答を受け取ってメッセージを追加
-    setMessages((m) => [...m, { role: "model", text: data.text }]);
-  } catch (err) {
-    console.error("Error fetching reply:", err);
-    setMessages((m) => [
-      ...m,
-      { role: "model", text: "通信エラーが発生しました。" },
-    ]);
-  } finally {
-    setLoading(false);
-  }
-};
-
+    const userMsg = { role: "user", text: input };
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
@@ -50,23 +25,18 @@ export default function LineStyleChat() {
       const res = await fetch("/api/gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // サーバーは { message: "..." } を受け取り、{ text: "返答" } を返します
+        // サーバは { message: "…" } を受け取る実装に合わせる
         body: JSON.stringify({ message: userMsg.text }),
       });
 
       const data = await res.json();
-      const replyText =
-        typeof data?.text === "string" && data.text.length
-          ? data.text
-          : "（応答がありません）";
 
-      setMessages((m) => [...m, { role: "model", text: replyText }]);
+      // サーバは { text: "AIの返答" } を返す実装に合わせる
+      const reply = typeof data?.text === "string" ? data.text : "（応答がありません）";
+      setMessages((m) => [...m, { role: "model", text: reply }]);
     } catch (err) {
       console.error("Error fetching reply:", err);
-      setMessages((m) => [
-        ...m,
-        { role: "model", text: "通信エラーが発生しました。少し時間をおいてお試しください。" },
-      ]);
+      setMessages((m) => [...m, { role: "model", text: "通信エラーが発生しました。" }]);
     } finally {
       setLoading(false);
     }
@@ -77,41 +47,64 @@ export default function LineStyleChat() {
   };
 
   return (
-    <div style={{ padding: 12, fontFamily: "system-ui, sans-serif" }}>
-      <div style={{ fontSize: 20, fontWeight: "bold", marginBottom: 8 }}>NOAH</div>
+    <div style={{ fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, 'ヒラギノ角ゴ ProN', 'Yu Gothic UI', sans-serif", padding: 16 }}>
+      <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>NOAH</div>
 
-      <div style={{ marginBottom: 12, lineHeight: 1.7 }}>
-        {messages.map((m, i) => (
-          <div key={i} style={{ textAlign: m.role === "user" ? "right" : "left" }}>
-            <span
-              style={{
-                display: "inline-block",
-                padding: "8px 12px",
-                borderRadius: 12,
-                margin: "4px 0",
-                background: m.role === "user" ? "#e8f5e9" : "#f5f5f5",
-              }}
-            >
-              {m.text}
-            </span>
-          </div>
-        ))}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {messages.map((m, i) => {
+          const isUser = m.role === "user";
+          return (
+            <div key={i} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start" }}>
+              <div
+                style={{
+                  maxWidth: "70%",
+                  background: isUser ? "rgba(16,185,129,0.15)" : "#f5f7fa",
+                  border: "1px solid #e5e7eb",
+                  padding: "12px 14px",
+                  borderRadius: 16,
+                  borderTopRightRadius: isUser ? 4 : 16,
+                  borderTopLeftRadius: isUser ? 16 : 4,
+                  lineHeight: 1.6,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {m.text}
+              </div>
+            </div>
+          );
+        })}
         <div ref={endRef} />
       </div>
 
-      <div>
+      <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
         <input
           placeholder="メッセージを入力"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
-          style={{ padding: 8, width: 260 }}
+          style={{
+            flex: 1,
+            border: "1px solid #d1d5db",
+            borderRadius: 999,
+            padding: "10px 14px",
+            outline: "none",
+          }}
         />
-        <button onClick={handleSend} disabled={loading} style={{ marginLeft: 6, padding: "8px 12px" }}>
+        <button
+          onClick={handleSend}
+          disabled={loading || !input.trim()}
+          style={{
+            background: loading || !input.trim() ? "#e5e7eb" : "#10b981",
+            color: loading || !input.trim() ? "#6b7280" : "#fff",
+            border: "none",
+            borderRadius: 999,
+            padding: "10px 18px",
+            cursor: loading || !input.trim() ? "not-allowed" : "pointer",
+          }}
+        >
           送信
         </button>
       </div>
     </div>
   );
 }
-
