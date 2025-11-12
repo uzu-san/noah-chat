@@ -1,9 +1,21 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
+
+function makeInitialGreeting() {
+  const h = new Date().getHours();
+ const greet = 
+    (h >= 4 && h < 10) ? "おはようございます。" : 
+    (h >= 10 && h < 18) ? "こんにちは。" : 
+    "こんばんは。";
+  return `${greet} 今日は、どんなことから話しましょうか？`;
+}
 
 export default function LineStyleChat() {
+  // 初回メッセージは時間帯で生成（useMemoで毎レンダー固定）
+  const initialMessage = useMemo(() => makeInitialGreeting(), []);
   const [messages, setMessages] = useState([
-    { role: "model", text: "こんにちは。NOAHです。どんなことに悩んでいますか？" },
+    { role: "model", text: initialMessage },
   ]);
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const endRef = useRef(null);
@@ -12,11 +24,10 @@ export default function LineStyleChat() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ---- 送信処理（この関数だけで完結） ----
   const handleSend = async () => {
     if (!input.trim() || loading) return;
 
-    const userMsg = { role: "user", text: input };
+    const userMsg = { role: "user", text: input.trim() };
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setLoading(true);
@@ -25,26 +36,11 @@ export default function LineStyleChat() {
       const res = await fetch("/api/gemini", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // サーバー側は { message: "..." } を受け取る実装
         body: JSON.stringify({ message: userMsg.text }),
       });
 
-      // --- ここが今回の差し替え：HTTPエラーを内容付きで表示 ---
-      if (!res.ok) {
-        let serverMsg = "";
-        try {
-          const maybeJson = await res.json();
-          serverMsg =
-            typeof maybeJson?.message === "string"
-              ? maybeJson.message
-              : JSON.stringify(maybeJson);
-        } catch {
-          serverMsg = `${res.status} ${res.statusText}`;
-        }
-        throw new Error(serverMsg || `HTTP ${res.status}`);
-      }
-
       const data = await res.json();
+
       const reply =
         typeof data?.text === "string" && data.text.trim()
           ? data.text
@@ -53,11 +49,10 @@ export default function LineStyleChat() {
       setMessages((m) => [...m, { role: "model", text: reply }]);
     } catch (err) {
       console.error("Error fetching reply:", err);
-      const msg =
-        err?.message && typeof err.message === "string"
-          ? `エラー: ${err.message}`
-          : "通信エラーが発生しました。";
-      setMessages((m) => [...m, { role: "model", text: msg }]);
+      setMessages((m) => [
+        ...m,
+        { role: "model", text: "通信エラーが発生しました。" },
+      ]);
     } finally {
       setLoading(false);
     }
