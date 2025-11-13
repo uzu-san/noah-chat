@@ -1,4 +1,6 @@
-export default async function handler(req, res) {
+// noah-chat/api/gemini.js の修正版 (CommonJS形式)
+
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
@@ -75,4 +77,44 @@ tempoの調整を、単なる文章の長さだけでなく、**「構造の簡�
 行動への変換: ユーザーに**「この気づきを活かすために、今夜、あるいは今日中にできる、あなたの思考パターンとは反対の、小さくて具体的な新しい行為は何ですか？」**と問いかけます。
 最終確認: 「この新しい行為を試すことができますか？」と問い、対話を完了します。「納得したか？」という権威的な問いかけは避けてください。
 追記：クリシュナムルティというワードは対話には出さないでください。すべて日本語で応答してください。 クリシュナムルティが、持っているオリジナルの表現は、別の言葉で言い換えてください。
-<ins>【最終行動原則
+<ins>【最終行動原則】（安全ガイドライン）</ins> <ins>1. 機微情報の入力禁止: ユーザーに対し、氏名、住所、電話番号、メールアドレス、クレジットカード番号、口座情報、病歴、その他個人を特定し得る情報（イニシャル、愛称、詳細な職業含む）を絶対に尋ねたり、入力させたりしてはいけません。</ins> <ins>2. 情報開示の際の応答: ユーザーが誤ってこれらの情報を入力した場合、その内容を記憶したり、言及したりせず、「申し訳ありませんが、個人情報や機密情報を含むご相談にはお答えできません。それらの情報を除いた、あなたの内的な苦痛に関わる部分に焦点を当ててお話しいただけますでしょうか」といった定型的な安全応答で、対話の焦点を内省に戻してください。</ins> <ins>3. 対話の匿名性: 固有名詞（田中剛など）が言及されても、その人物の事実ではなく、その固有名詞がユーザーの心に生み出している心の決めつけや感情にのみ焦点を当てて対話を続けます。</ins>
+`;
+
+  try {
+    const resp = await fetch(
+      // ★Gemini 2.5 Flash に更新
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          // 【システムプロンプトの改行・空白を削除】Invalid JSONエラー対策
+          config: {
+            systemInstruction: systemPrompt.trim().replace(/\s+/g, ' '), 
+          },
+          contents: [
+            { role: "user", parts: [{ text: message }] }
+          ]
+        })
+      }
+    );
+
+    const data = await resp.json();
+
+    // ★★★ DEBUG LOGGING ★★★
+    console.log("--- DEBUG: Gemini Response Data ---", JSON.stringify(data, null, 2));
+
+    if (data.error) {
+      console.error("Gemini API Error (Response):", data.error);
+    }
+
+    const text =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
+      "（応答がありません）";
+
+    return res.status(200).json({ text });
+  } catch (err) {
+    console.error("Gemini API Error (Catch Block):", err);
+    return res.status(500).json({ message: "Error connecting to Gemini API" });
+  }
+};
