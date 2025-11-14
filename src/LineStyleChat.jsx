@@ -1,21 +1,20 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 function makeInitialGreeting() {
   const h = new Date().getHours();
- const greet = (h >= 4 && h < 18) 
-    ? "こんにちは。"  // 4:00〜17:59
-    : "こんばんは。"; // 18:00〜3:59
-const followUp = "ここは、あなたが安心して考えを置ける場所です。今日は、どんな気持ちから始めましょうか？";
-  
+  const greet = h >= 4 && h < 18 ? "こんにちは。" : "こんばんは。";
+  const followUp =
+    "ここは、あなたが安心して考えを置ける場所です。今日は、どんな気持ちから始めましょうか？";
+
   return `${greet} ${followUp}`;
 }
 
 export default function LineStyleChat() {
   // 初回メッセージは時間帯で生成（useMemoで毎レンダー固定）
   const initialMessage = useMemo(() => makeInitialGreeting(), []);
-  const [messages, setMessages] = useState([
-    { role: "model", text: initialMessage },
-  ]);
+  const [messages, setMessages] = useState([{ role: "model", text: initialMessage }]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,7 +22,7 @@ export default function LineStyleChat() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, loading]);
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -60,7 +59,9 @@ export default function LineStyleChat() {
   };
 
   const onKeyDown = (e) => {
-    if (e.key === "Enter") handleSend();
+    if (e.key === "Enter") {
+      handleSend();
+    }
   };
 
   return (
@@ -94,14 +95,72 @@ export default function LineStyleChat() {
                   borderTopRightRadius: isUser ? 4 : 16,
                   borderTopLeftRadius: isUser ? 16 : 4,
                   lineHeight: 1.6,
-                  whiteSpace: "pre-wrap",
                 }}
               >
-                {m.text}
+                {isUser ? (
+                  // ユーザー発話はプレーンテキスト
+                  <span style={{ whiteSpace: "pre-wrap" }}>{m.text}</span>
+                ) : (
+                  // モデルの返答は Markdown として描画
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ node, ...props }) => (
+                        <p style={{ margin: "0 0 6px 0" }} {...props} />
+                      ),
+                      ul: ({ node, ...props }) => (
+                        <ul
+                          style={{ paddingLeft: "1.2rem", margin: "4px 0" }}
+                          {...props}
+                        />
+                      ),
+                      ol: ({ node, ...props }) => (
+                        <ol
+                          style={{ paddingLeft: "1.2rem", margin: "4px 0" }}
+                          {...props}
+                        />
+                      ),
+                      li: ({ node, ...props }) => (
+                        <li style={{ marginBottom: 2 }} {...props} />
+                      ),
+                      strong: ({ node, ...props }) => (
+                        <strong style={{ fontWeight: 700 }} {...props} />
+                      ),
+                    }}
+                  >
+                    {m.text}
+                  </ReactMarkdown>
+                )}
               </div>
             </div>
           );
         })}
+
+        {loading && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-start",
+            }}
+          >
+            <div
+              style={{
+                maxWidth: "70%",
+                background: "#f5f7fa",
+                border: "1px solid #e5e7eb",
+                padding: "12px 14px",
+                borderRadius: 16,
+                borderTopLeftRadius: 4,
+                lineHeight: 1.6,
+                color: "#9ca3af",
+                fontStyle: "italic",
+              }}
+            >
+              考えています…
+            </div>
+          </div>
+        )}
+
         <div ref={endRef} />
       </div>
 
@@ -137,4 +196,3 @@ export default function LineStyleChat() {
     </div>
   );
 }
-
