@@ -40,10 +40,13 @@ export default function LineStyleChat() {
       });
 
       const data = await res.json();
+      console.log("API return:", data); // ★ エラー原因がここに出る
 
       const reply =
         typeof data?.text === "string" && data.text.trim()
           ? data.text
+          : data?.message
+          ? `サーバーエラー: ${data.message}`
           : "（応答がありません）";
 
       setMessages((m) => [...m, { role: "model", text: reply }]);
@@ -59,9 +62,7 @@ export default function LineStyleChat() {
   };
 
   const onKeyDown = (e) => {
-    if (e.key === "Enter") {
-      handleSend();
-    }
+    if (e.key === "Enter") handleSend();
   };
 
   return (
@@ -98,10 +99,8 @@ export default function LineStyleChat() {
                 }}
               >
                 {isUser ? (
-                  // ユーザー発話はプレーンテキスト
                   <span style={{ whiteSpace: "pre-wrap" }}>{m.text}</span>
                 ) : (
-                  // モデルの返答は Markdown として描画
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -136,6 +135,7 @@ export default function LineStyleChat() {
           );
         })}
 
+        {/* ローディング吹き出し */}
         {loading && (
           <div
             style={{
