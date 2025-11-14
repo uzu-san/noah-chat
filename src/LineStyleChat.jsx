@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState, useMemo } from "react";
 
 function makeInitialGreeting() {
   const h = new Date().getHours();
- const greet = 
-    (h >= 4 && h < 10) ? "おはようございます。" : 
-    (h >= 10 && h < 18) ? "こんにちは。" : 
-    "こんばんは。";
-  return `${greet} 今日は、どんなことから話しましょうか？`;
+ const greet = (h >= 4 && h < 18) 
+    ? "こんにちは。"  // 4:00〜17:59
+    : "こんばんは。"; // 18:00〜3:59
+const followUp = "ここは、あなたが安心して考えを置ける場所です。今日は、どんな気持ちから始めましょうか？";
+  
+  return `${greet} ${followUp}`;
 }
 
 export default function LineStyleChat() {
@@ -136,3 +137,4 @@ export default function LineStyleChat() {
     </div>
   );
 }
+
