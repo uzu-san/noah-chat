@@ -40,14 +40,17 @@ export default function LineStyleChat() {
       });
 
       const data = await res.json();
-      console.log("API return:", data); // ★ エラー原因がここに出る
+      console.log("API return:", data);
 
-      const reply =
-        typeof data?.text === "string" && data.text.trim()
-          ? data.text
-          : data?.message
-          ? `サーバーエラー: ${data.message}`
-          : "（応答がありません）";
+      // ★★ ここが「デバッグ用」の肝です ★★
+      let reply = "";
+      if (typeof data?.text === "string" && data.text.trim()) {
+        // ふつうに text が入っていれば、それを表示
+        reply = data.text;
+      } else {
+        // text が無い / 空のときは、中身をそのまま見せる
+        reply = "DEBUG: " + JSON.stringify(data, null, 2);
+      }
 
       setMessages((m) => [...m, { role: "model", text: reply }]);
     } catch (err) {
@@ -135,7 +138,6 @@ export default function LineStyleChat() {
           );
         })}
 
-        {/* ローディング吹き出し */}
         {loading && (
           <div
             style={{
