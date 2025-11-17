@@ -45,7 +45,7 @@ function LineStyleChat() {
       if (typeof data?.text === "string" && data.text.trim()) {
         reply = data.text;
       } else {
-        // デバッグ用：中身が分かるように表示
+        // デバッグ用：APIの中身がわかるように表示
         reply = "DEBUG: " + JSON.stringify(data, null, 2);
       }
 
@@ -90,7 +90,7 @@ function LineStyleChat() {
                 style={{
                   maxWidth: "70%",
                   background: isUser ? "rgba(16,185,129,0.15)" : "#f5f7fa",
-                  border: "1px solid "#e5e7eb",
+                  border: "1px solid #e5e7eb", // ★ 修正済み
                   padding: "12px 14px",
                   borderRadius: 16,
                   borderTopRightRadius: isUser ? 4 : 16,
