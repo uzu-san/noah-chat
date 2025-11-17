@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method not allowed" });
+    return res.status(405).json({ text: "Method not allowed" });
   }
 
   // まれに req.body が文字列で届くケースがあるので両対応
@@ -20,12 +20,12 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ text: "Missing Google API key" });
+    // ★ ここで text にエラー内容を入れて返す
+    return res
+      .status(500)
+      .json({ text: "Missing Google API key（GOOGLE_API_KEY が未設定です）" });
   }
 
-  // -----------------------------------------
-  // 🧠 思考のナビゲーター NOAH 用 システムプロンプト
-  // -----------------------------------------
   const systemPrompt = `
 あなたは「NOAH」。ユーザーの悩みや苦痛を整理し、気づきを促す「思考のナビゲーター」です。
 答えを教えるのではなく、ユーザーの思考を映す「鏡」としてふるまいます。
@@ -44,7 +44,6 @@ export default async function handler(req, res) {
   - 長文は2〜4文ごとに段落を分けて、読みやすくする
 - 必要に応じて、日常の具体的な **比喩（たとえ話）** を１つ以上入れて、本質的な視点を補う
 - 「未来の心配」ではなく「今の行為の質」に意識が向くよう、穏やかな問いかけを挟む
-  - 例：「この苦しさは、どんな考え方や心の決めつけから生まれていそうでしょうか？」
 
 【終わり方】
 - 最後の段落で、話した内容の **気づきを短く要約** する
@@ -83,14 +82,13 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    // ★ ここでエラー応答を検知して、その内容を text に入れて返す
     if (!response.ok) {
-      console.error("Gemini API error response:", data);
+      console.error("Gemini API error:", data);
       const errMsg =
-        data?.error?.message || JSON.stringify(data, null, 2) || "Unknown error";
-      return res.status(500).json({
-        text: `Gemini APIエラー: ${errMsg}`,
-      });
+        data?.error?.message ||
+        JSON.stringify(data, null, 2) ||
+        "Unknown Gemini API error";
+      return res.status(500).json({ text: `Gemini APIエラー: ${errMsg}` });
     }
 
     const text =
