@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     }
 
     const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" +
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyCmNHNyyet1Xp5pB835ssbJdAVLcsVmNUc" +
       apiKey;
 
     const payload = {
