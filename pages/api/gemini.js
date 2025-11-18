@@ -2,79 +2,88 @@
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ text: "Method not allowed" });
   }
 
+  // body が string でも object でも受け取れるように調整
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch (e) {
+      return res.status(400).json({ text: "Invalid JSON" });
+    }
+  }
+
+  const userMessage = body?.message;
+  if (!userMessage) {
+    return res.status(400).json({ text: "No message provided" });
+  }
+
+  // Vercel の環境変数から API キー取得
+  const apiKey = process.env.CLIENT_KEY;
+  if (!apiKey) {
+    console.error("CLIENT_KEY is missing");
+    return res.status(500).json({ text: "Missing API key" });
+  }
+
+  // ⭐ あなたが使いたいモデル名（ListModels からそのままコピー）
+  const MODEL_NAME = "models/gemini-2.5-flash";
+
+  // ⭐ 正しい URL（v1beta に合わせる）
+  const url =
+    "https://generativelanguage.googleapis.com/v1beta/" +
+    MODEL_NAME +
+    ":generateContent?key=" +
+    apiKey;
+
+  // Gemini API への payload
+  const payload = {
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: userMessage }],
+      },
+    ],
+  };
+
   try {
-    // body が文字列でもオブジェクトでも対応
-    let body = req.body;
-    if (typeof body === "string") {
-      try {
-        body = JSON.parse(body);
-      } catch (e) {
-        console.warn("Failed to parse body as JSON:", e);
-      }
-    }
-
-    const message = body?.message;
-    if (!message) {
-      return res.status(400).json({ error: "No message provided" });
-    }
-
-    const apiKey = process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
-      console.error("GOOGLE_API_KEY is missing");
-      return res.status(500).json({ error: "Missing GOOGLE_API_KEY" });
-    }
-
-    const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=AIzaSyCmNHNyyet1Xp5pB835ssbJdAVLcsVmNUc" +
-      apiKey;
-
-    const payload = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: message }],
-        },
-      ],
-    };
-
-    const resp = await fetch(url, {
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
 
-    const raw = await resp.text();
+    const raw = await response.text(); // まず text として取る
 
-    if (!resp.ok) {
-      // ここで Vercel のログに詳しい内容が出ます
-      console.error("Gemini API error:", resp.status, raw);
+    if (!response.ok) {
+      console.error("Gemini API error:", response.status, raw);
       return res.status(500).json({
-        error: `Gemini API error (${resp.status})`,
+        text: "Gemini API error",
+        status: response.status,
         detail: raw,
       });
     }
 
+    // JSON として解析
     let data;
     try {
       data = JSON.parse(raw);
     } catch (e) {
-      console.error("Failed to parse Gemini response:", e, raw);
-      return res.status(500).json({ error: "Invalid response from Gemini" });
+      console.error("Failed to parse JSON:", e);
+      return res.status(500).json({
+        text: "Invalid JSON returned from Gemini",
+        detail: raw,
+      });
     }
 
-    const text =
+    const replyText =
       data.candidates?.[0]?.content?.parts?.[0]?.text ??
       "（応答がありません）";
 
-    return res.status(200).json({ text });
-  } catch (err) {
-    console.error("API handler error:", err);
-    return res.status(500).json({
-      error: "Internal server error",
-      detail: String(err),
-    });
+    return res.status(200).json({ text: replyText });
+  } catch (error) {
+    console.error("Server error:", error);
+    return res.status(500).json({ text: "Internal server error" });
   }
 }
